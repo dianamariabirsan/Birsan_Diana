@@ -12,17 +12,308 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using AutoLotModel;
+using System.Data.Entity;
+using System.Data;
 
 namespace Birsan_Diana
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
+    enum ActionState
+    {
+        New,
+        Edit,
+        Delete,
+        Nothing
+    }
     public partial class MainWindow : Window
     {
+        ActionState action = ActionState.Nothing;             //using AutoLotModel
+        AutoLotEntitiesModel ctx = new AutoLotEntitiesModel();
+        CollectionViewSource customerVSource, inventoryVSource;
+        CollectionViewSource customerOrdersVSource;
         public MainWindow()
         {
             InitializeComponent();
+            DataContext = this;
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {   //using System.Data.Entity
+            customerVSource = ((System.Windows.Data.CollectionViewSource)(this.FindResource("customerViewSource")));
+            customerVSource.Source = ctx.Customers.Local;
+            ctx.Customers.Load();
+            System.Windows.Data.CollectionViewSource customerViewSource = ((System.Windows.Data.CollectionViewSource)(this.FindResource("customerViewSource")));
+            // Load data by setting the CollectionViewSource.Source property:
+            // customerViewSource.Source = [generic data source]
+            System.Windows.Data.CollectionViewSource inventoryViewSource = ((System.Windows.Data.CollectionViewSource)(this.FindResource("inventoryViewSource")));
+            // Load data by setting the CollectionViewSource.Source property:
+            // inventoryViewSource.Source = [generic data source]
+            customerOrdersVSource = ((System.Windows.Data.CollectionViewSource)(this.FindResource("customerOrdersVSource")));
+            //customerOrdersVSource.Source = ctx.Orders.Local;
+            ctx.Orders.Load();
+            ctx.Inventories.Load();
+            cmbCustomers.ItemsSource = ctx.Customers.Local;
+            //cmbCustomers.DisplayMemberPath = "FirstName";
+            cmbCustomers.SelectedValuePath = "CustId";
+
+            cmbInventory.ItemsSource = ctx.Inventories.Local;
+            //cmbInventory.DisplayMemberPath = "Make";
+            cmbInventory.SelectedValuePath = "CarId";
+
+            BindDataGrid();
+        }
+
+        private void btnAdd_Click(object sender, RoutedEventArgs e)
+        {
+            action = ActionState.New;
+        }
+        private void btnEdit_Click(object sender, RoutedEventArgs e)
+        {
+            action = ActionState.Edit;
+        }
+        private void btnDelete_Click(object sender, RoutedEventArgs e)
+        {
+            action = ActionState.Delete;
+        }
+        private void btnNext_Click(object sender, RoutedEventArgs e)
+        {
+            customerVSource.View.MoveCurrentToNext();
+        }
+        private void btnPrevious_Click(object sender, RoutedEventArgs e)
+        {
+            customerVSource.View.MoveCurrentToPrevious();
+        }
+        private void SaveCustomers()
+        {
+            Customer customer = null;
+            if (action == ActionState.New)
+            {
+                try
+                {
+                    customer = new Customer() //instantare Customer entity
+                    {
+                        FistName = firstNameTextBox.Text.Trim(),
+                        LastName = lastNameTextBox.Text.Trim()
+                    };
+                    ctx.Customers.Add(customer);     //adaugam entitatea nou creata in context
+                    customerVSource.View.Refresh();
+                    ctx.SaveChanges();               //salvam modificarile
+                }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }
+            else if (action == ActionState.Edit)
+            {
+                try
+                {
+                    customer = (Customer)customerDataGrid.SelectedItem;
+                    customer.FistName = firstNameTextBox.Text.Trim();
+                    customer.LastName = lastNameTextBox.Text.Trim();
+                    ctx.SaveChanges();
+                }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }
+            else if (action == ActionState.Delete)
+            {
+                try
+                {
+                    customer = (Customer)customerDataGrid.SelectedItem;
+                    ctx.Customers.Remove(customer);
+                    ctx.SaveChanges();
+                }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+                customerVSource.View.Refresh();
+            }
+        }
+
+        private void btnNext1_Click(object sender, RoutedEventArgs e)
+        {
+            customerVSource.View.MoveCurrentToNext();
+        }
+        private void btnPrevious1_Click(object sender, RoutedEventArgs e)
+        {
+            customerVSource.View.MoveCurrentToPrevious();
+        }
+        private void SaveInventory()
+        {
+            Inventory inventory = null;
+            if (action == ActionState.New)
+            {
+                try
+                {
+                    inventory = new Inventory()
+                    {
+                        Color = colorTextBox.Text.Trim(),
+                        Make = makeTextBox.Text.Trim()
+                    };
+                    ctx.Inventories.Add(inventory);
+                    inventoryVSource.View.Refresh();
+                    ctx.SaveChanges();
+                }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }
+            else if (action == ActionState.Edit)
+            {
+                try
+                {
+                    inventory = (Inventory)inventoryDataGrid.SelectedItem;
+                    inventory.Color = colorTextBox.Text.Trim();
+                    inventory.Make = makeTextBox.Text.Trim();
+                    ctx.SaveChanges();
+                }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }
+            else if (action == ActionState.Delete)
+            {
+                try
+                {
+                    inventory = (Inventory)inventoryDataGrid.SelectedItem;
+                    ctx.Inventories.Remove(inventory);
+                    ctx.SaveChanges();
+                }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+                inventoryVSource.View.Refresh();
+            }
+        }
+
+        private void gbOperations_Click(object sender, RoutedEventArgs e)
+        {
+            Button SelectedButton = (Button)e.OriginalSource;
+            Panel panel = (Panel)SelectedButton.Parent;
+            foreach (Button B in panel.Children.OfType<Button>())
+            {
+                if (B != SelectedButton) B.IsEnabled = false;
+            }
+            gbActions.IsEnabled = true;
+        }
+        private void ReInitialize()
+        {
+            Panel panel = gbOperations.Content as Panel;
+            foreach (Button B in panel.Children.OfType<Button>())
+            {
+                B.IsEnabled = true;
+            }
+            gbActions.IsEnabled = false;
+        }
+        private void btnCancel_Click(object sender, RoutedEventArgs e)
+        {
+            ReInitialize();
+        }
+        private void btnSave_Click(object sender, RoutedEventArgs e)
+        {
+            TabItem ti = tbCtrlAutoLot.SelectedItem as TabItem;
+
+            switch (ti.Header)
+            {
+                case "Customers":
+                    SaveCustomers();
+                    break;
+                case "Inventory":
+                    SaveInventory();
+                    break;
+                case "Orders":
+                    break;
+            }
+            ReInitialize();
+        }
+        private void SaveOrders()
+        {
+            Order order = null;
+            if (action == ActionState.New)
+            {
+                try
+                {
+                    Customer customer = (Customer)cmbCustomers.SelectedItem;
+                    Inventory inventory = (Inventory)cmbInventory.SelectedItem;
+                    
+                    order = new Order()    //instantiem Order entity
+                    {
+                        CustId = customer.CustId,
+                        CarId = inventory.CarId
+                    };
+                    //adaugam entitatea nou creata in context
+                    ctx.Orders.Add(order);
+                    ctx.SaveChanges();          //salvam modificarile
+                    BindDataGrid();
+                }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }
+            else 
+            
+                if (action == ActionState.Edit)
+                {
+                    dynamic selectedOrder = ordersDataGrid.SelectedItem;
+                    try
+                    {
+                        int curr_id = selectedOrder.OrderId;
+                        var editedOrder = ctx.Orders.FirstOrDefault(s => s.OrderId == curr_id);
+                        if (editedOrder != null)
+                        {
+                            editedOrder.CustId = Int32.Parse(cmbCustomers.SelectedValue.ToString());
+                            editedOrder.CarId = Convert.ToInt32(cmbInventory.SelectedValue.ToString());
+                            ctx.SaveChanges();          //salvam modificarile
+                    }
+                   }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+                BindDataGrid();
+                customerOrdersVSource.View.MoveCurrentTo(selectedOrder);
+            }
+            else if (action == ActionState.Delete)
+            {
+                try
+                {
+                    dynamic selectedOrder = ordersDataGrid.SelectedItem;
+                    int curr_id = selectedOrder.OrderId;
+                    var deletedOrder = ctx.Orders.FirstOrDefault(s => s.OrderId == curr_id);
+                    if (deletedOrder != null)
+                    {
+                        ctx.Orders.Remove(deletedOrder);
+                        ctx.SaveChanges();
+                        MessageBox.Show("Order Deleted Successfully", "Message");
+                        BindDataGrid();
+                    }
+                }
+                catch (DataException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }
+        }
+        private void BindDataGrid()
+        {
+            var queryOrder = from ord in ctx.Orders 
+                             join cust in ctx.Customers on ord.CustId equals
+                             cust.CustId join inv in ctx.Inventories on ord.CarId
+                             equals inv.CarId select new { ord.OrderId, ord.CarId,
+                             ord.CustId, cust.FistName, cust.LastName, inv.Make,
+                             inv.Color };
+            customerOrdersVSource.Source = queryOrder.ToList();
         }
     }
 }
